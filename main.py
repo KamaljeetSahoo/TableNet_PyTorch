@@ -396,7 +396,8 @@ def predict(image_path: str, model_weights: str) -> List[pd.DataFrame]:
     pred = Predict(model_weights, transforms)
 
     image = Image.open(image_path)
-    print(pred.predict(image))
+    x = pred.predict(image)
+    return x
 
 
-predict('10.1.1.1.2013_64.bmp', 'best_model.ckpt')
+#predict('10.1.1.1.2013_64.bmp', 'best_model.ckpt')
