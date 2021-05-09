@@ -16,6 +16,7 @@ from skimage.measure import label, regionprops
 from skimage.morphology import closing, square, convex_hull_image
 from skimage.transform import resize
 from skimage.util import invert
+import cv2
 import pytesseract
 pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files (x86)/Tesseract-OCR/tesseract.exe'
 tessdata_dir_config = r'--tessdata-dir "C:/Program Files (x86)/Tesseract-OCR/tessdata"'
@@ -300,7 +301,7 @@ class Predict:
         self.transforms = transforms
         self.threshold = threshold
         self.per = per
-        
+        self.inp_img = ""
         self.model = TableNetModule.load_from_checkpoint(checkpoint_path)
         self.model.eval()
         self.model.requires_grad_(False)
@@ -312,12 +313,13 @@ class Predict:
         Returns (List[pd.DataFrame]): Tables in pandas DataFrame format.
         """
         processed_image = self.transforms(image=np.array(image))["image"]
-
+        self.inp_img = cv2.resize(np.array(image), (896, 896))
         table_mask, column_mask = self.model.forward(processed_image.unsqueeze(0))
 
         table_mask = self._apply_threshold(table_mask)
         column_mask = self._apply_threshold(column_mask)
-
+        tb = self.inp_img*cv2.merge((table_mask, table_mask, table_mask))
+        cl = self.inp_img*cv2.merge((column_mask, column_mask, column_mask))
         segmented_tables = self._process_tables(self._segment_image(table_mask))
 
         tables = []
@@ -328,7 +330,7 @@ class Predict:
                 for column in segmented_columns.values():
                     cols.append(self._column_to_dataframe(column, image))
                 tables.append(pd.concat(cols, ignore_index=True, axis=1))
-        return tables
+        return tables, tb, cl
 
     def _apply_threshold(self, mask):
         mask = mask.squeeze(0).squeeze(0).numpy() > self.threshold
@@ -398,6 +400,3 @@ def predict(image_path: str, model_weights: str) -> List[pd.DataFrame]:
     image = Image.open(image_path)
     x = pred.predict(image)
     return x
-
-
-#predict('10.1.1.1.2013_64.bmp', 'best_model.ckpt')

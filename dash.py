@@ -82,7 +82,9 @@ if method == "PDF":
         if selected_approach == 'Image Processing':
             st.write(table_detection('extracted_images/'+selected_page))
         if selected_approach == 'TableNet approach':
-            out = predict('extracted_images/'+selected_page, 'best_model.ckpt')
+            out, tb, cl = predict('extracted_images/'+selected_page, 'best_model.ckpt')
+            st.image(tb, "Table Mask")
+            st.image(cl, "Column Mask")
             for i in range(len(out)):
                 st.dataframe(out[i])
         
@@ -101,6 +103,8 @@ if method == "Image":
         if selected_approach == 'Image Processing':
             st.write(table_detection('selected_img.jpg'))
         if selected_approach == 'TableNet approach':
-            out = predict('selected_img.jpg', 'best_model.ckpt')
+            out, tb, cl = predict('selected_img.jpg', 'best_model.ckpt')
+            st.image(tb, "Table Mask")
+            st.image(cl, "Column Mask")
             for i in range(len(out)):
                 st.dataframe(out[i])
