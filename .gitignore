@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+selected.pdf
 
 # C extensions
 *.so
