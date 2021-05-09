@@ -13,14 +13,8 @@ tessdata_dir_config = r'--tessdata-dir "C:/Program Files (x86)/Tesseract-OCR/tes
 def table_detection(img_path):
     img = cv2.imread(img_path)
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    #plt.imshow(img_gray)
-    #plt.show()
-    #(thresh, img_bin) = cv2.threshold(img_gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     (thresh, img_bin) = cv2.threshold(img_gray, 180, 255, cv2.THRESH_BINARY)
     img_bin = cv2.bitwise_not(img_bin)
-    #plt.imshow(img_bin )
-    #cv2.imwrite('img.jpg',img_bin)
-    #plt.show()
     kernel_length_v = (np.array(img_gray).shape[1])//200
     vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, kernel_length_v)) 
     im_temp1 = cv2.erode(img_bin, vertical_kernel, iterations=5)
@@ -34,9 +28,9 @@ def table_detection(img_path):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     table_segment = cv2.addWeighted(vertical_lines_img, 0.5, horizontal_lines_img, 0.5, 0.0)
     table_segment = cv2.erode(cv2.bitwise_not(table_segment), kernel, iterations=2)
-    thresh, table_segment = cv2.threshold(table_segment, 0, 255, cv2.THRESH_OTSU)
+    _, table_segment = cv2.threshold(table_segment, 0, 255, cv2.THRESH_OTSU)
    
-    contours, hierarchy = cv2.findContours(table_segment, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(table_segment, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     count = 0
     dict1={}
     lst1=['shipper','consignee','notify party']
@@ -45,7 +39,6 @@ def table_detection(img_path):
         if (w > 0 and h > 0) :
             count += 1
             cropped = img[y-3:y + h, x-3:x + w]
-            
             txt=pytesseract.image_to_string(cropped, config=tessdata_dir_config).strip()
             for el in lst1:
               if el in  txt.split('\n')[0].lower():
@@ -54,11 +47,6 @@ def table_detection(img_path):
                   txt=pytesseract.image_to_string(Image.fromarray(cropped), config=tessdata_dir_config).strip()
                 dict1.update({el:' '.join(txt.split('\n')[1:])})
 
-
-
-     
-	    #cv2.imwrite("table.jpg", table_segment)
-	    #cv2.imwrite("img.jpg", img)
     dict1=pd.DataFrame([dict1])
     return  dict1
 
@@ -90,8 +78,13 @@ if method == "PDF":
         image = Image.open('extracted_images/'+selected_page)
         st.image(image)
 
-        st.write(table_detection('extracted_images/'+selected_page))
-        
+        selected_approach = st.selectbox("select approach",['Image Processing', 'TableNet approach'])
+        if selected_approach == 'Image Processing':
+            st.write(table_detection('extracted_images/'+selected_page))
+        if selected_approach == 'TableNet approach':
+            out = predict('extracted_images/'+selected_page, 'best_model.ckpt')
+            for i in range(len(out)):
+                st.dataframe(out[i])
         
 
 
@@ -103,6 +96,11 @@ if method == "Image":
             f.write(uploaded_file.getbuffer())
         
         st.image(Image.open('selected_img.jpg'), width=200)
-        out = predict('selected_img.jpg', 'best_model.ckpt')
-        for i in range(len(out)):
-            st.dataframe(out[i])
+        selected_approach = st.selectbox("select approach",['Image Processing', 'TableNet approach'])
+
+        if selected_approach == 'Image Processing':
+            st.write(table_detection('selected_img.jpg'))
+        if selected_approach == 'TableNet approach':
+            out = predict('selected_img.jpg', 'best_model.ckpt')
+            for i in range(len(out)):
+                st.dataframe(out[i])

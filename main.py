@@ -300,7 +300,7 @@ class Predict:
         self.transforms = transforms
         self.threshold = threshold
         self.per = per
-
+        
         self.model = TableNetModule.load_from_checkpoint(checkpoint_path)
         self.model.eval()
         self.model.requires_grad_(False)
