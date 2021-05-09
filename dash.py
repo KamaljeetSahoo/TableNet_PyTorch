@@ -6,12 +6,14 @@ from main import predict
 import numpy as np
 import cv2
 import pandas as pd
+import base64
 import pytesseract
 pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files (x86)/Tesseract-OCR/tesseract.exe'
 tessdata_dir_config = r'--tessdata-dir "C:/Program Files (x86)/Tesseract-OCR/tessdata"'
 
 def table_detection(img_path):
     img = cv2.imread(img_path)
+    img_s= cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     (thresh, img_bin) = cv2.threshold(img_gray, 180, 255, cv2.THRESH_BINARY)
     img_bin = cv2.bitwise_not(img_bin)
@@ -28,9 +30,9 @@ def table_detection(img_path):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     table_segment = cv2.addWeighted(vertical_lines_img, 0.5, horizontal_lines_img, 0.5, 0.0)
     table_segment = cv2.erode(cv2.bitwise_not(table_segment), kernel, iterations=2)
-    _, table_segment = cv2.threshold(table_segment, 0, 255, cv2.THRESH_OTSU)
+    thresh, table_segment = cv2.threshold(table_segment, 0, 255, cv2.THRESH_OTSU)
    
-    contours, _ = cv2.findContours(table_segment, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv2.findContours(table_segment, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     count = 0
     dict1={}
     lst1=['shipper','consignee','notify party']
@@ -39,6 +41,7 @@ def table_detection(img_path):
         if (w > 0 and h > 0) :
             count += 1
             cropped = img[y-3:y + h, x-3:x + w]
+            
             txt=pytesseract.image_to_string(cropped, config=tessdata_dir_config).strip()
             for el in lst1:
               if el in  txt.split('\n')[0].lower():
@@ -46,9 +49,9 @@ def table_detection(img_path):
                   cropped = img[y-3:y+ h+int(img.shape[0]/14), x-3:x + w]
                   txt=pytesseract.image_to_string(Image.fromarray(cropped), config=tessdata_dir_config).strip()
                 dict1.update({el:' '.join(txt.split('\n')[1:])})
-
+              img_s=cv2.rectangle(img_s,(x-3,y-3),(x + w,y + h),(255,0,0),2)
     dict1=pd.DataFrame([dict1])
-    return  dict1
+    return  dict1,img_s
 
 
 st.title("TableNet with OCR Detection")
@@ -80,13 +83,24 @@ if method == "PDF":
 
         selected_approach = st.selectbox("select approach",['Image Processing', 'TableNet approach'])
         if selected_approach == 'Image Processing':
-            st.write(table_detection('extracted_images/'+selected_page))
+            df, img = table_detection('extracted_images/'+selected_page)
+            st.image(img, "processed image")
+            st.dataframe(df)
+            if not df.empty:
+                csv = df.to_csv().encode()
+                b64 = base64.b64encode(csv).decode()
+                href = f'<a href="data:file/csv;base64,{b64}" download="out.csv" target="_blank">Download csv file</a>'
+                st.markdown(href, unsafe_allow_html=True)
         if selected_approach == 'TableNet approach':
             out, tb, cl = predict('extracted_images/'+selected_page, 'best_model.ckpt')
             st.image(tb, "Table Mask")
             st.image(cl, "Column Mask")
             for i in range(len(out)):
                 st.dataframe(out[i])
+                csv = out[i].to_csv().encode()
+                b64 = base64.b64encode(csv).decode()
+                href = f'<a href="data:file/csv;base64,{b64}" download="out.csv" target="_blank">Download csv file</a>'
+                st.markdown(href, unsafe_allow_html=True)
         
 
 
@@ -101,10 +115,21 @@ if method == "Image":
         selected_approach = st.selectbox("select approach",['Image Processing', 'TableNet approach'])
 
         if selected_approach == 'Image Processing':
-            st.write(table_detection('selected_img.jpg'))
+            df, img = table_detection('selected_img.jpg')
+            st.image(img, "processed image")
+            st.dataframe(df)
+            if not df.empty:
+                csv = df.to_csv().encode()
+                b64 = base64.b64encode(csv).decode()
+                href = f'<a href="data:file/csv;base64,{b64}" download="out.csv" target="_blank">Download csv file</a>'
+                st.markdown(href, unsafe_allow_html=True)
         if selected_approach == 'TableNet approach':
             out, tb, cl = predict('selected_img.jpg', 'best_model.ckpt')
             st.image(tb, "Table Mask")
             st.image(cl, "Column Mask")
             for i in range(len(out)):
                 st.dataframe(out[i])
+                csv = out[i].to_csv().encode()
+                b64 = base64.b64encode(csv).decode()
+                href = f'<a href="data:file/csv;base64,{b64}" download="out.csv" target="_blank">Download csv file</a>'
+                st.markdown(href, unsafe_allow_html=True)
